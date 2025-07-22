@@ -15,9 +15,13 @@ A Google Analytics account to supply the following environment variables to be w
 - GOOGLE_SERVICE_ACCOUNT_EMAIL
 - GOOGLE_PRIVATE_KEY
 
+
 ## Importing
 
-> At the time of writing, I'm not exactly sure yet as to how I'll host this package.
-> Local for now
+### uv
 
-`uv install dist/secured_data_pipeline-0.1.0-py3-none-any.whl`
+`uv add git+ssh://git@github.com/Cyber4All/secured_python_pipeline.git`
+
+### pip
+
+`pip install git+ssh://git@github.com/Cyber4All/secured_python_pipeline.git`
