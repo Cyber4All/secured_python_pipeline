@@ -1,0 +1,23 @@
+# SecurEd Python Data Pipeline
+
+A python module that takes in data from Google Analytics and the different SecurEd databases and returns them as [Polars](https://pola.rs/) dataframes for easier data analysis.
+
+The dataframe can be converted to different data types and file formats such as csv, Pandas dataframe, [Apache Arrow](https://arrow.apache.org/), etc.  
+
+The version of PyMongo used throughout this modules leverages the [PyMongoArrow](https://www.mongodb.com/developer/languages/python/pymongoarrow-and-data-analysis/) extension.
+
+> PyMongoArrow is a PyMongo extension containing tools for loading MongoDB query result sets as Apache Arrow tables, Pandas and NumPy arrays
+
+## Requirements
+
+A Google Analytics account to supply the following environment variables to be written in a `.env` file:
+
+- GOOGLE_SERVICE_ACCOUNT_EMAIL
+- GOOGLE_PRIVATE_KEY
+
+## Importing
+
+> At the time of writing, I'm not exactly sure yet as to how I'll host this package.
+> Local for now
+
+`uv install dist/secured_data_pipeline-0.1.0-py3-none-any.whl`

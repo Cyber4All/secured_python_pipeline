@@ -1,0 +1,23 @@
+[project]
+name = "secured-data-pipeline"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+  { name = "luis", email = "luis.gcodes@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+  "polars>=1.19.0",
+  "protobuf>=5.29.3",
+  "pendulum>=3.0.0",
+  "google-analytics-data>=0.18.16",
+  "pyarrow>=18.0.0",
+  "pymongo>=4.10.1",
+  "pymongoarrow>=1.6.2",
+  "python-dotenv>=1.0.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
