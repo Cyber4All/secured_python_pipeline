@@ -1,7 +1,7 @@
 [project]
-name = "secured-data-pipeline"
+name = "securedDataPipeline"
 version = "0.1.0"
-description = "Add your description here"
+description = "SecurEd package that pulls in data as a Polars dataframe for easier analysis"
 readme = "README.md"
 authors = [
   { name = "luis", email = "luis.gcodes@gmail.com" }

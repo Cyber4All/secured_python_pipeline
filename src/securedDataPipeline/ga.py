@@ -1,6 +1,6 @@
 import polars as pl
 from dotenv import load_dotenv
-from secured_data_pipeline.mongo import get_LO, map_topics, map_tags, objects_index_col
+from securedDataPipeline.mongo import get_LO, map_topics, map_tags, objects_index_col
 from pyarrow import field, string, struct
 from os import environ
 from google.analytics.data_v1beta import BetaAnalyticsDataClient

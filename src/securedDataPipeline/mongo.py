@@ -1,6 +1,6 @@
 import polars as pl
 from pymongo import MongoClient
-from secured_data_pipeline.helper import objID_to_string
+from securedDataPipeline.helper import objID_to_string
 
 # pyarrow types
 from pyarrow import field, list_, string, struct, int32
@@ -28,7 +28,11 @@ tags_col = sg_db["tags"]
 ratings_col = onion_db["ratings"]
 submissions_col = onion_db["submissions"]
 cae_orgs_col = card_db["organizations"]
+collections_col = onion_db["collections"]
 
+def get_collections():
+    collections_df = collections_col.find_polars_all({})
+    return collections_df
 
 def get_users() -> pl.DataFrame:
     users_df = users_col.find_polars_all(
