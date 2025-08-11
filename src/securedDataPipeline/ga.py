@@ -118,7 +118,8 @@ def get_browseViews(startDate: str = "2015-08-14", endDate: str = "today"):
                 # query params to dictionary
                 pl.col("url").map_elements(
                     lambda u: parse_qs(urlparse(u).query),
-                    return_dtype=pl.Struct,
+                    # Will have to revisit in the future
+                    # return_dtype=pl.Struct,
                 ),
             )
             # create a column for each query parameter
