@@ -41,6 +41,7 @@ def get_browseViews(startDate: str = "2015-08-14", endDate: str = "today"):
     endDate: str
         - End date for the query
 
+    See https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/DateRange for valid DateRange values
     Returns
     -------
     pl.DataFrame with the following columns:
@@ -161,6 +162,7 @@ def get_pageViews(startDate: str, endDate: str) -> pl.DataFrame | None:
     endDate: str
         - Ending date for the query
 
+    See https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/DateRange for valid DateRange values
     Returns
     -------
     pl.DataFrame with the following columns:
