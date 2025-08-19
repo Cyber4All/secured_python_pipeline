@@ -298,7 +298,7 @@ def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today"
                                 field_name="pagePath",
                                 string_filter=Filter.StringFilter(
                                     value=path,
-                                    # I don't believe there should be any variation of collection paths, so we exact match
+                                    # Exact match by URL path
                                     match_type=Filter.StringFilter.MatchType(1),
                                 ),
                             )
@@ -323,9 +323,9 @@ def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today"
     # Get dataframe of collection page views
     return views_df.with_columns([
         # Get collection name
-        (pl.col("dimensionValues").list.get(0).struct.field("value")
-        .alias("collection")
+        (pl.col("dimensionValues").list.get(0).struct.field("value").alias("collection")
+            .map_elements(lambda x: x.split("/")[-1], return_dtype=pl.String)),
+
         # Get the number of views and cast as int
-        .map_elements(lambda x: x.split("/")[-1], return_dtype=pl.String)),
         pl.col("metricValues").list.get(0).struct.field("value").alias("views").cast(pl.Int32),
     ]).select(["collection", "views"])
