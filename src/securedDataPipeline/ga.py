@@ -1,6 +1,6 @@
 import polars as pl
-from dotenv import load_dotenv
-from securedDataPipeline.mongo import get_LO, map_topics, map_tags, objects_index_col
+from dotenv import load_dotenv, find_dotenv
+from securedDataPipeline.mongo import get_LO, map_topics, map_tags, objects_index_col, get_collections
 from pyarrow import field, string, struct
 from os import environ
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -17,11 +17,11 @@ from google.api_core.exceptions import InvalidArgument
 from pymongoarrow.api import Schema
 from google.protobuf.json_format import MessageToDict
 
-load_dotenv()
+load_dotenv(find_dotenv())
 
 ga4_creds = {
-    "client_email": environ["GOOGLE_SERVICE_ACCOUNT_EMAIL"],
-    "private_key": f"-----BEGIN PRIVATE KEY-----\n{environ['GOOGLE_PRIVATE_KEY']}\n-----END PRIVATE KEY-----".replace(
+    "client_email": environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL"),
+    "private_key": f"-----BEGIN PRIVATE KEY-----\n{environ.get('GOOGLE_PRIVATE_KEY')}\n-----END PRIVATE KEY-----".replace(
         "\\n", "\n"
     ),
     "token_uri": "https://oauth2.googleapis.com/token",
@@ -30,7 +30,7 @@ ga4_client = BetaAnalyticsDataClient.from_service_account_info(ga4_creds)
 property_id = "332215249"
 
 
-def get_browseViews(startDate: str = "2015-08-14", endDate: str = "today"):
+def getBrowsePageViews(startDate: str = "2015-08-14", endDate: str = "today"):
     """
     Gets the user behavior when they browse learning objects
 
@@ -151,7 +151,7 @@ def get_browseViews(startDate: str = "2015-08-14", endDate: str = "today"):
     return url_df
 
 
-def get_pageViews(startDate: str, endDate: str) -> pl.DataFrame | None:
+def getDetailPageViews(startDate: str = "2015-08-14", endDate: str = "today") -> pl.DataFrame | None:
     """
     Gets the page views of learning objects via Google Analytics
 
@@ -184,6 +184,7 @@ def get_pageViews(startDate: str, endDate: str) -> pl.DataFrame | None:
         ),
     ).unnest("author")
 
+    # Create URL paths for learning objects
     url_path = []
     for cuid, author in authors.iter_rows():
         url_path.append(f"/details/{author}/{cuid}")
@@ -196,6 +197,7 @@ def get_pageViews(startDate: str, endDate: str) -> pl.DataFrame | None:
             dimensions=[Dimension(name="pagePath")],
             metrics=[Metric(name="screenPageViews")],
             date_ranges=[DateRange(start_date=startDate, end_date=endDate)],
+            # Get the reports from learning object links
             dimension_filter=FilterExpression(
                 or_group=FilterExpressionList(
                     expressions=[
@@ -255,4 +257,75 @@ def get_pageViews(startDate: str, endDate: str) -> pl.DataFrame | None:
         # Join with LO table
     ).join(get_LO(), left_on="lo_cuid", right_on="cuid")
 
+
     return views_df
+
+def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today") -> pl.DataFrame | None:
+    """
+    Gets the page views of a collections page via Google Analytics
+
+    Parameters
+    ----------
+    startDate: str
+        - Starting date for the query
+    endDate: str
+        - Ending date for the query
+
+    See https://developers.google.com/analytics/devguides/reporting/data/v1/rest/v1beta/DateRange for valid DateRange values
+    Returns
+    -------
+    pl.DataFrame with the following columns:
+        - collection: The name of the collection
+        - views: The number of views for that collection
+    """
+
+    collections = get_collections()["abvName"].to_list()
+
+    # Store all of the links of collection pages
+    url_path = pl.Series([f"/c/{collection}" for collection in collections])
+
+    try:
+        views_req = RunReportRequest(
+            property=f"properties/{property_id}",
+            dimensions=[Dimension(name="pagePath")],
+            metrics=[Metric(name="screenPageViews")],
+            date_ranges=[DateRange(start_date=startDate, end_date=endDate)],
+            dimension_filter=FilterExpression(
+                or_group=FilterExpressionList(
+                    expressions=[
+                        FilterExpression(
+                            filter=Filter(
+                                field_name="pagePath",
+                                string_filter=Filter.StringFilter(
+                                    value=path,
+                                    # I don't believe there should be any variation of collection paths, so we exact match
+                                    match_type=Filter.StringFilter.MatchType(1),
+                                ),
+                            )
+                        )
+                        for path in url_path
+                    ]
+                )
+            ),
+        )
+    except InvalidArgument as e:
+        print(e)
+        return None
+
+    ga4_res = MessageToDict(ga4_client.run_report(views_req)._pb)
+    # Return empty DataFrame if no rows exist in the response
+    if "rows" not in ga4_res:
+        return pl.DataFrame()
+
+    # Protobuf to dictionary to Dataframe
+    views_df = pl.DataFrame(ga4_res["rows"])
+
+    # Get dataframe of collection page views
+    return views_df.with_columns([
+        # Get collection name
+        (pl.col("dimensionValues").list.get(0).struct.field("value")
+        .alias("collection")
+        # Get the number of views and cast as int
+        .map_elements(lambda x: x.split("/")[-1], return_dtype=pl.String)),
+        pl.col("metricValues").list.get(0).struct.field("value").alias("views").cast(pl.Int32),
+    ]).select(["collection", "views"])

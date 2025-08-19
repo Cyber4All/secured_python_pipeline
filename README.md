@@ -1,8 +1,8 @@
 # SecurEd Python Data Pipeline
 
-A python module that takes in data from Google Analytics and the different SecurEd databases and returns them as [Polars](https://pola.rs/) dataframes for easier data analysis.
+A python module that takes in data from Google Analytics and joins the appropriate MongoDB SecurEd collections as [Polars](https://pola.rs/) dataframes for easier data analysis.
 
-The dataframe can be converted to different data types and file formats such as csv, Pandas dataframe, [Apache Arrow](https://arrow.apache.org/), etc.  
+The dataframe can be converted to different data types and file formats such as csv, Pandas dataframe, [Apache Arrow](https://arrow.apache.org/), etc.
 
 The version of PyMongo used throughout this modules leverages the [PyMongoArrow](https://www.mongodb.com/developer/languages/python/pymongoarrow-and-data-analysis/) extension.
 
@@ -15,8 +15,9 @@ A Google Analytics account to supply the following environment variables to be w
 - GOOGLE_SERVICE_ACCOUNT_EMAIL
 - GOOGLE_PRIVATE_KEY
 
-
 ## Importing
+
+This is a private repo, so you'll need to upload your public ssh key to GitHub for installation to work
 
 ### uv
 
