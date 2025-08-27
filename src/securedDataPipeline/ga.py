@@ -111,15 +111,22 @@ def getBrowsePageViews(startDate: str = "2015-08-14", endDate: str = "today"):
                 ]
             )
             .filter(
-                # Filter out routes without queries
-                pl.col("url").str.contains(r"\?")
+                # Filter out routes with unnecessary queries
+                [
+                    # No queries provided
+                    pl.col("url").str.contains(r"\?"),
+                    # URL not encoded properly
+                    ~pl.col("url").str.contains(r"amp;"),
+                    # For translate this page to 'x' language
+                    ~pl.col("url").str.contains(r"[\?&]_x_")
+                ]
             )
             .select(["url", "visits"])
             .with_columns(
                 # query params to dictionary
                 pl.col("url").map_elements(
                     lambda u: parse_qs(urlparse(u).query),
-                    # Will have to revisit in the future
+                    # TODO: Couldn't satisfy the proper return data type. Will have to revisit later
                     # return_dtype=pl.Struct,
                 ),
             )
@@ -281,9 +288,13 @@ def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today"
 
     collections = get_collections()["abvName"].to_list()
 
-    # Store all of the links of collection pages
-    url_path = pl.Series([f"/c/{collection}" for collection in collections])
-
+    # Store all of the links of collection pages within a regex
+    collection_group = "|".join(collections)
+    # Some collection pages have /c/ and /collections/ in their path
+    regex_pattern = (
+        fr"|^/c/({collection_group})$"
+        fr"|^/collections/({collection_group})$"
+    )
     try:
         views_req = RunReportRequest(
             property=f"properties/{property_id}",
@@ -291,21 +302,13 @@ def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today"
             metrics=[Metric(name="screenPageViews")],
             date_ranges=[DateRange(start_date=startDate, end_date=endDate)],
             dimension_filter=FilterExpression(
-                or_group=FilterExpressionList(
-                    expressions=[
-                        FilterExpression(
-                            filter=Filter(
-                                field_name="pagePath",
-                                string_filter=Filter.StringFilter(
-                                    value=path,
-                                    # Exact match by URL path
-                                    match_type=Filter.StringFilter.MatchType(1),
-                                ),
-                            )
-                        )
-                        for path in url_path
-                    ]
-                )
+                filter=Filter(
+                   field_name="pagePath",
+                   string_filter=Filter.StringFilter(
+                       value=regex_pattern,
+                       match_type=Filter.StringFilter.MatchType(5),
+                   ),
+               )
             ),
         )
     except InvalidArgument as e:
@@ -322,9 +325,7 @@ def getCollectionPageViews(startDate: str = "2015-08-14", endDate: str = "today"
 
     # Get dataframe of collection page views
     return views_df.with_columns([
-        # Get collection name
-        (pl.col("dimensionValues").list.get(0).struct.field("value").alias("collection")
-            .map_elements(lambda x: x.split("/")[-1], return_dtype=pl.String)),
+        (pl.col("dimensionValues").list.get(0).struct.field("value").str.split("/").list.get(-1).alias("collection")),
 
         # Get the number of views and cast as int
         pl.col("metricValues").list.get(0).struct.field("value").alias("views").cast(pl.Int32),
