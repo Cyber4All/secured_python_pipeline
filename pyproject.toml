@@ -16,6 +16,7 @@ dependencies = [
   "pymongo>=4.10.1",
   "pymongoarrow>=1.6.2",
   "python-dotenv>=1.0.1",
+  "marimo>=0.15.0",
 ]
 
 [build-system]
