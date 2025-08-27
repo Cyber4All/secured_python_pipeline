@@ -33,6 +33,7 @@ submissions_col = onion_db["submissions"]
 cae_orgs_col = card_db["organizations"]
 collections_col = onion_db["collections"]
 card_user_col = card_db["users"]
+ratings_col = onion_db["ratings"]
 
 def get_collections():
     collections_df = collections_col.find_polars_all({})
@@ -228,3 +229,20 @@ def get_card_resources() -> pl.DataFrame:
     ).select(pl.exclude("_id"))
 
     return card_resources_df
+
+def get_ratings() -> pl.DataFrame:
+    """
+    Returns a dataframe of onion.ratings, excluding _id
+    """
+    ratings_df = ratings_col.find_polars_all(
+        {},
+        projection={
+            "Value": "$value",
+            "Comment": "$comment",
+            "User": "$user",
+            "Source": "$source",
+            "Date": "$date"
+        },
+    ).select(pl.exclude("_id"))
+
+    return ratings_df
