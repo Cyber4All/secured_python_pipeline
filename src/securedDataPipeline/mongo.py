@@ -1,6 +1,8 @@
 import polars as pl
 from pymongo import MongoClient
 from securedDataPipeline.helper import objID_to_string
+from bson.objectid import ObjectId
+from datetime import datetime
 
 # pyarrow types
 from pyarrow import field, list_, string, struct, int32
@@ -13,6 +15,7 @@ patch_all()
 client = MongoClient("mongodb://localhost:27017")
 
 # Databases
+# TODO: Determine if I should split the file by databases or even down to collections
 onion_db = client["onion"]
 cart_db = client["cart-service"]
 topics_db = client["topics"]
@@ -29,6 +32,8 @@ ratings_col = onion_db["ratings"]
 submissions_col = onion_db["submissions"]
 cae_orgs_col = card_db["organizations"]
 collections_col = onion_db["collections"]
+card_user_col = card_db["users"]
+ratings_col = onion_db["ratings"]
 
 def get_collections():
     collections_df = collections_col.find_polars_all({})
@@ -49,22 +54,22 @@ def get_users() -> pl.DataFrame:
     return users_df
 
 
-# Get tags and topics
+# Maps attributes of type list with their respective names from different collections
 topics_df = objID_to_string(df=topics_col.find_polars_all({}), col="_id")
-tags_df = objID_to_string(df=tags_col.find_polars_all({}), col="_id")
-
-# Dictionary mapping of id's and their respective names
 topicID_to_name = topics_df.select([pl.col("_id"), pl.col("name")]).to_dict(
     as_series=False
 )
+topic_dict = dict(zip(topicID_to_name["_id"], topicID_to_name["name"]))
 
+tags_df = objID_to_string(df=tags_col.find_polars_all({}), col="_id")
 tagsID_to_name = tags_df.select([pl.col("_id"), pl.col("name")]).to_dict(
     as_series=False
 )
-
-topic_dict = dict(zip(topicID_to_name["_id"], topicID_to_name["name"]))
 tag_dict = dict(zip(tagsID_to_name["_id"], tagsID_to_name["name"]))
 
+orgs_df = objID_to_string(df=cae_orgs_col.find_polars_all({}), col="_id")
+orgID_to_name = orgs_df.select([pl.col("_id"), pl.col("name")])
+org_dict = dict(zip(orgID_to_name["_id"], orgID_to_name["name"]))
 
 def map_topics(ids) -> List[str]:
     if pl.Series(ids).is_empty():
@@ -72,10 +77,11 @@ def map_topics(ids) -> List[str]:
 
     return [topic_dict.get(id, f"Unknown Topic ({id})") for id in ids]
 
-
 def map_tags(ids) -> List[str]:
     return [tag_dict.get(id, f"Unknown Tag ({id})") for id in ids]
 
+def map_card_orgs(ids) -> List[str]:
+    return [org_dict.get(id, f"Unknown Organization ({id})") for id in ids]
 
 def get_LO() -> pl.DataFrame:
     """
@@ -117,8 +123,8 @@ def get_LO() -> pl.DataFrame:
                     "tags": list_(string()),
                 }
             ),
-            # Map the ID's from tags and topics to their respective names
         )
+        # Map the ID's from tags and topics to their respective names
         .with_columns(
             pl.col("topics").map_elements(map_topics, return_dtype=pl.List(pl.String)),
             pl.col("tags").map_elements(map_tags, return_dtype=pl.List(pl.String)),
@@ -177,3 +183,66 @@ def get_CAE_orgs() -> pl.DataFrame:
     ).select(pl.exclude("_id"))
 
     return cae_orgs_df
+
+def get_card_users() -> pl.DataFrame:
+    """
+    Returns a dataframe of CARD.users, excluding _id
+    """
+    card_users_df = (
+        card_user_col.find_polars_all({}, projection={
+            "Name": "$name",
+            "Email": "$email",
+            "Organization": "$organization",
+            "Access": "$accessGroups"
+        })
+        .with_columns([
+            # Convert ObjectId to string
+            pl.col("_id")
+            .map_elements(
+                lambda o: ObjectId(o).generation_time, return_dtype=datetime).alias("createdAt"),
+
+            # Map organization IDs to names
+            pl.col("Organization")
+            .map_elements(
+                lambda org_id: org_dict.get(org_id, f"Unknown Organization ({org_id})"), return_dtype=pl.String)
+            ])
+    )
+
+    return card_users_df
+
+def get_card_resources() -> pl.DataFrame:
+    """
+    Returns a dataframe of CARD.resources
+    """
+    card_resources_df = card_db["resources"].find_polars_all(
+        {},
+        projection={
+            "Name": "$name",
+            "Status": "$status",
+            "URL": "$url",
+            "Notes": "$notes",
+            "Organizations": "$organizations",
+            "Category": "$category",
+        },
+    ).with_columns(
+        pl.col("Organizations").map_elements(map_card_orgs, return_dtype=pl.List(pl.String))
+    ).select(pl.exclude("_id"))
+
+    return card_resources_df
+
+def get_ratings() -> pl.DataFrame:
+    """
+    Returns a dataframe of onion.ratings, excluding _id
+    """
+    ratings_df = ratings_col.find_polars_all(
+        {},
+        projection={
+            "Value": "$value",
+            "Comment": "$comment",
+            "User": "$user",
+            "Source": "$source",
+            "Date": "$date"
+        },
+    ).select(pl.exclude("_id"))
+
+    return ratings_df
