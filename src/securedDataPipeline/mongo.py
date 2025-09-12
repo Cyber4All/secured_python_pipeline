@@ -3,6 +3,8 @@ from pymongo import MongoClient
 from securedDataPipeline.helper import objID_to_string
 from bson.objectid import ObjectId
 from datetime import datetime
+from dotenv import load_dotenv, find_dotenv
+from os import getenv
 
 # pyarrow types
 from pyarrow import field, list_, string, struct, int32
@@ -12,7 +14,8 @@ from pymongoarrow.monkey import patch_all
 from typing import List
 
 patch_all()
-client = MongoClient("mongodb://localhost:27017")
+load_dotenv(find_dotenv())
+client = MongoClient(getenv(key="MONGO_DB_URI", default="mongodb://localhost:27017"))
 
 # Databases
 # TODO: Determine if I should split the file by databases or even down to collections
