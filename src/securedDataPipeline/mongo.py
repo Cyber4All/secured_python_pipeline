@@ -38,24 +38,40 @@ collections_col = onion_db["collections"]
 card_user_col = card_db["users"]
 ratings_col = onion_db["ratings"]
 
+
 def get_collections():
     collections_df = collections_col.find_polars_all({})
     return collections_df
 
+
 def get_users() -> pl.DataFrame:
-    users_df = users_col.find_polars_all(
-        {},
-        projection={
-            "Name": "$name",
-            "Email": "$email",
-            "Org": "$organization",
-            "accessGroups": "$accessGroups",
-            "createdAt": "$createdAt",
-        },
-    )
+    users_df = users_col.find_polars_all({})
 
     return users_df
 
+
+try:
+    # Checks if any of the collections are missing
+    for col in [
+        objects_index_col,
+        users_col,
+        downloads_col,
+        topics_col,
+        tags_col,
+        ratings_col,
+        submissions_col,
+        cae_orgs_col,
+        collections_col,
+        card_user_col,
+    ]:
+        count = col.count_documents({})
+        if count == 0:
+            raise Exception(f"Collection '{col.name}' is empty")
+except Exception as e:
+    from sys import exit
+
+    print("Make sure to pull the appropriate data")
+    exit(1)
 
 # Maps attributes of type list with their respective names from different collections
 topics_df = objID_to_string(df=topics_col.find_polars_all({}), col="_id")
@@ -74,17 +90,21 @@ orgs_df = objID_to_string(df=cae_orgs_col.find_polars_all({}), col="_id")
 orgID_to_name = orgs_df.select([pl.col("_id"), pl.col("name")])
 org_dict = dict(zip(orgID_to_name["_id"], orgID_to_name["name"]))
 
+
 def map_topics(ids) -> List[str]:
     if pl.Series(ids).is_empty():
         return ["No Topic"]
 
     return [topic_dict.get(id, f"Unknown Topic ({id})") for id in ids]
 
+
 def map_tags(ids) -> List[str]:
     return [tag_dict.get(id, f"Unknown Tag ({id})") for id in ids]
 
+
 def map_card_orgs(ids) -> List[str]:
     return [org_dict.get(id, f"Unknown Organization ({id})") for id in ids]
+
 
 def get_LO() -> pl.DataFrame:
     """
@@ -187,51 +207,63 @@ def get_CAE_orgs() -> pl.DataFrame:
 
     return cae_orgs_df
 
+
 def get_card_users() -> pl.DataFrame:
     """
     Returns a dataframe of CARD.users, excluding _id
     """
-    card_users_df = (
-        card_user_col.find_polars_all({}, projection={
+    card_users_df = card_user_col.find_polars_all(
+        {},
+        projection={
             "Name": "$name",
             "Email": "$email",
             "Organization": "$organization",
-            "Access": "$accessGroups"
-        })
-        .with_columns([
+            "Access": "$accessGroups",
+        },
+    ).with_columns(
+        [
             # Convert ObjectId to string
             pl.col("_id")
-            .map_elements(
-                lambda o: ObjectId(o).generation_time, return_dtype=datetime).alias("createdAt"),
-
+            .map_elements(lambda o: ObjectId(o).generation_time, return_dtype=datetime)
+            .alias("createdAt"),
             # Map organization IDs to names
-            pl.col("Organization")
-            .map_elements(
-                lambda org_id: org_dict.get(org_id, f"Unknown Organization ({org_id})"), return_dtype=pl.String)
-            ])
+            pl.col("Organization").map_elements(
+                lambda org_id: org_dict.get(org_id, f"Unknown Organization ({org_id})"),
+                return_dtype=pl.String,
+            ),
+        ]
     )
 
     return card_users_df
+
 
 def get_card_resources() -> pl.DataFrame:
     """
     Returns a dataframe of CARD.resources
     """
-    card_resources_df = card_db["resources"].find_polars_all(
-        {},
-        projection={
-            "Name": "$name",
-            "Status": "$status",
-            "URL": "$url",
-            "Notes": "$notes",
-            "Organizations": "$organizations",
-            "Category": "$category",
-        },
-    ).with_columns(
-        pl.col("Organizations").map_elements(map_card_orgs, return_dtype=pl.List(pl.String))
-    ).select(pl.exclude("_id"))
+    card_resources_df = (
+        card_db["resources"]
+        .find_polars_all(
+            {},
+            projection={
+                "Name": "$name",
+                "Status": "$status",
+                "URL": "$url",
+                "Notes": "$notes",
+                "Organizations": "$organizations",
+                "Category": "$category",
+            },
+        )
+        .with_columns(
+            pl.col("Organizations").map_elements(
+                map_card_orgs, return_dtype=pl.List(pl.String)
+            )
+        )
+        .select(pl.exclude("_id"))
+    )
 
     return card_resources_df
+
 
 def get_ratings() -> pl.DataFrame:
     """
@@ -244,7 +276,7 @@ def get_ratings() -> pl.DataFrame:
             "Comment": "$comment",
             "User": "$user",
             "Source": "$source",
-            "Date": "$date"
+            "Date": "$date",
         },
     ).select(pl.exclude("_id"))
 
