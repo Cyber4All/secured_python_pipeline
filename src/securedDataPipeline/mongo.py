@@ -246,6 +246,7 @@ def get_card_resources() -> pl.DataFrame:
         .find_polars_all(
             {},
             projection={
+                "id": "$_id",
                 "Name": "$name",
                 "Status": "$status",
                 "URL": "$url",
@@ -259,6 +260,12 @@ def get_card_resources() -> pl.DataFrame:
                 map_card_orgs, return_dtype=pl.List(pl.String)
             )
         )
+        .with_columns(
+            pl.col("id").map_elements(
+                lambda x: ObjectId(x).generation_time,
+                return_dtype=datetime
+            )
+        ).alias("Created")
         .select(pl.exclude("_id"))
     )
 
