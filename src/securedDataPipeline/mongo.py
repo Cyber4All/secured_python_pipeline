@@ -1,8 +1,9 @@
 import polars as pl
+import pendulum as pm
 from pymongo import MongoClient
 from securedDataPipeline.helper import objID_to_string
 from bson.objectid import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone 
 from dotenv import load_dotenv, find_dotenv
 from os import getenv
 
@@ -256,17 +257,23 @@ def get_card_resources() -> pl.DataFrame:
             },
         )
         .with_columns(
+            [
             pl.col("Organizations").map_elements(
                 map_card_orgs, return_dtype=pl.List(pl.String)
-            )
+            ),
+            pl.col("_id").map_elements(
+                lambda o: ObjectId(o).generation_time,
+                # return_dtype=pl.Datetime(time_unit="us", time_zone="UTC"),
+            ).alias("Created")
+            ]
         )
         .with_columns(
-            pl.col("id").map_elements(
-                lambda x: ObjectId(x).generation_time,
-                return_dtype=datetime
+            pl.col("Created").map_elements(
+                lambda x: pm.instance(x),
+                # return_dtype=pl.Date
             )
-        ).alias("Created")
-        .select(pl.exclude("_id"))
+        )
+        .select(pl.exclude("id"))
     )
 
     return card_resources_df
