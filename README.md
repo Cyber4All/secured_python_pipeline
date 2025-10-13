@@ -25,8 +25,8 @@ This package isn't currently in PyPi so install via git
 
 ### uv
 
-`uv add git+https://github.com/Cyber4All/secured_python_pipeline.git
+`uv add git+https://github.com/Cyber4All/secured_python_pipeline.git`
 
 ### pip
 
-`pip install git+https://github.com/Cyber4All/secured_python_pipeline.git
+`pip install git+https://github.com/Cyber4All/secured_python_pipeline.git`
