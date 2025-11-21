@@ -145,6 +145,7 @@ def get_LO() -> pl.DataFrame:
                     "id": string(),
                     "length": string(),
                     "tags": list_(string()),
+                    "levels": list_(string())
                 }
             ),
         )
