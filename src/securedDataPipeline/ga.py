@@ -19,13 +19,29 @@ from google.protobuf.json_format import MessageToDict
 
 load_dotenv(find_dotenv())
 
+def get_formatted_private_key():
+    """Properly format the Google private key from environment variable"""
+    private_key = environ.get('GOOGLE_PRIVATE_KEY', '')
+    
+    # Remove any existing header/footer
+    private_key = private_key.replace('-----BEGIN PRIVATE KEY-----', '')
+    private_key = private_key.replace('-----END PRIVATE KEY-----', '')
+    
+    # Replace literal \n with actual newlines
+    private_key = private_key.replace('\\n', '\n')
+    
+    # Remove any whitespace
+    private_key = private_key.strip()
+    
+    # Reconstruct with proper formatting
+    return f"-----BEGIN PRIVATE KEY-----\n{private_key}\n-----END PRIVATE KEY-----"
+
 ga4_creds = {
     "client_email": environ.get("GOOGLE_SERVICE_ACCOUNT_EMAIL"),
-    "private_key": f"-----BEGIN PRIVATE KEY-----\n{environ.get('GOOGLE_PRIVATE_KEY')}\n-----END PRIVATE KEY-----".replace(
-        "\\n", "\n"
-    ),
+    "private_key": get_formatted_private_key(),
     "token_uri": "https://oauth2.googleapis.com/token",
 }
+
 ga4_client = BetaAnalyticsDataClient.from_service_account_info(ga4_creds)
 property_id = "332215249"
 
