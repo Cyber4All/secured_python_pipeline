@@ -21,6 +21,7 @@ def objID_to_string(df: pl.DataFrame, col: str) -> pl.DataFrame:
 
 
 def parse_ISO8601(col_name: str) -> pl.Expr:
+    import pendulum as pm
     """
     Return a polars expression that parses string column that represent date to be of Date object
     """
