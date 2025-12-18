@@ -39,6 +39,7 @@ def parse_ISO8601(col_name: str) -> pl.Expr:
     parse_date_exp = pl.col(col_name).map_elements(
         lambda d: pm.parse(normalize_dates(d)).date(), return_dtype=pm.Date
     )
-return parse_date_exp
+
+    return parse_date_exp
 
 
