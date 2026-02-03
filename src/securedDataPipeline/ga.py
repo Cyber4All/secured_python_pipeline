@@ -280,6 +280,23 @@ def getDetailPageViews(startDate: str = "2015-08-14", endDate: str = "today") ->
         # Join with LO table
     ).join(get_LO(), left_on="lo_cuid", right_on="cuid")
 
+    if "topics" in views_df.columns:
+        try:
+            views_df = views_df.with_columns(
+                pl.col("topics").map_elements(
+                    map_topics, return_dtype=pl.List(pl.String)
+                )
+            )
+        except pl.exceptions.ComputeError as err:
+            print(err)
+
+    if "tags" in views_df.columns:
+        try:
+            views_df = views_df.with_columns(
+                pl.col("tags").map_elements(map_tags, return_dtype=pl.List(pl.String))
+            )
+        except pl.exceptions.ComputeError as err:
+            print(err)
 
     return views_df
 

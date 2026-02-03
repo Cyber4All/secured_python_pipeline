@@ -3,7 +3,7 @@ import pendulum as pm
 from pymongo import MongoClient
 from securedDataPipeline.helper import objID_to_string
 from bson.objectid import ObjectId
-from datetime import datetime, timezone 
+from datetime import datetime, timezone
 from dotenv import load_dotenv, find_dotenv
 from os import getenv
 
@@ -25,9 +25,11 @@ cart_db = client["cart-service"]
 topics_db = client["topics"]
 sg_db = client["standard-guidelines"]
 card_db = client["CARD"]
+files_db = client["file-service"]
 
 # Collections
 objects_index_col = onion_db["objects-index"]
+objects_col = onion_db["objects"]
 users_col = onion_db["users"]
 downloads_col = onion_db["downloads"]
 topics_col = topics_db["object-topics"]
@@ -38,6 +40,7 @@ cae_orgs_col = card_db["organizations"]
 collections_col = onion_db["collections"]
 card_user_col = card_db["users"]
 ratings_col = onion_db["ratings"]
+files_col = files_db["files"]
 
 
 def get_collections():
@@ -49,6 +52,10 @@ def get_users() -> pl.DataFrame:
     users_df = users_col.find_polars_all({})
 
     return users_df
+
+
+def get_files():
+    return files_col.find_polars_all({}, projection={"extension": "$extension"})
 
 
 try:
@@ -107,57 +114,29 @@ def map_card_orgs(ids) -> List[str]:
     return [org_dict.get(id, f"Unknown Organization ({id})") for id in ids]
 
 
-def get_LO() -> pl.DataFrame:
+def get_LO(is_index: bool = False) -> pl.DataFrame:
     """
     Maps out tags and topics with their respective names into a learning objects dataframe
 
     Returns a dataframe of onion.objects, excluding _id
     """
-    # Read in learning objects
-    objects_index_df = (
-        objects_index_col.find_polars_all(
-            {},
-            schema=Schema(
-                {
-                    "cuid": string(),
-                    "topics": list_(string()),
-                    "status": string(),
-                    "date": string(),
-                    "author": struct(
-                        [
-                            field("username", string()),
-                            field("email", string()),
-                            field("name", string()),
-                        ]
-                    ),
-                    "contributors": list_(
-                        struct(
-                            [
-                                field("name", string()),
-                                field("organization", string()),
-                                field("email", string()),
-                            ]
-                        )
-                    ),
-                    "objectCollection": string(),
-                    "name": string(),
-                    "version": int32(),
-                    "id": string(),
-                    "length": string(),
-                    "tags": list_(string()),
-                    "levels": list_(string())
-                }
-            ),
+    if is_index:
+        # Read in learning objects from objects_index_col and map topics/tags
+        df = (
+            objects_index_col.find_polars_all({})
+            .with_columns(
+                pl.col("topics").map_elements(
+                    map_topics, return_dtype=pl.List(pl.String)
+                ),
+                pl.col("tags").map_elements(map_tags, return_dtype=pl.List(pl.String)),
+            )
+            .rename({"objectCollection": "collection"})
         )
-        # Map the ID's from tags and topics to their respective names
-        .with_columns(
-            pl.col("topics").map_elements(map_topics, return_dtype=pl.List(pl.String)),
-            pl.col("tags").map_elements(map_tags, return_dtype=pl.List(pl.String)),
-        )
-        .rename({"objectCollection": "collection"})
-    )
+    else:
+        # Read in learning objects from objects_col without mapping
+        df = objects_col.find_polars_all({})
 
-    return objects_index_df
+    return df
 
 
 def get_downloads() -> pl.DataFrame:
@@ -259,13 +238,15 @@ def get_card_resources() -> pl.DataFrame:
         )
         .with_columns(
             [
-            pl.col("Organizations").map_elements(
-                map_card_orgs, return_dtype=pl.List(pl.String)
-            ),
-            pl.col("_id").map_elements(
-                lambda o: ObjectId(o).generation_time,
-                # return_dtype=pl.Datetime(time_unit="us", time_zone="UTC"),
-            ).alias("Created")
+                pl.col("Organizations").map_elements(
+                    map_card_orgs, return_dtype=pl.List(pl.String)
+                ),
+                pl.col("_id")
+                .map_elements(
+                    lambda o: ObjectId(o).generation_time,
+                    # return_dtype=pl.Datetime(time_unit="us", time_zone="UTC"),
+                )
+                .alias("Created"),
             ]
         )
         .with_columns(
